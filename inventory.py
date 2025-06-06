@@ -11,39 +11,72 @@ mode = st.radio("Selecciona acció:", ["Afegir entrada", "Modificar entrada"])
 
 if mode == "Afegir entrada":
 
+    # Initialize session state
+    for key in ["isbn", "lloc", "data", "preu", "title", "author", "data_entered"]:
+        if key not in st.session_state:
+            st.session_state[key] = None
+
     st.write("Entra les dades, siusplau.")
 
-    isbn = st.text_input("ISBN: ")
+# Step 1: Collect base inputs
+    st.session_state.isbn = st.text_input("ISBN:", value=st.session_state.isbn or "")
+    st.session_state.lloc = st.text_input("Localització:", value=st.session_state.lloc or "")
+    st.session_state.data = st.date_input("Data de publicació:", value=st.session_state.data or None)
+    st.session_state.preu = st.number_input("Preu:", value=st.session_state.preu or 0.0)
 
-    lloc = st.text_input("Localització: ")
+# Step 2: Fetch book data
+    if st.button("Entra les dades"):
+        book = get_book(st.session_state.isbn)
+        st.session_state.title = book["title"]
+        st.session_state.author = book["author"]
+        st.session_state.data_entered = True
 
-    data = st.date_input("Data de publicació: ")
+# Step 3: Ask for missing metadata if needed
+    if st.session_state.data_entered:
+        if not st.session_state.title or st.session_state.title == "Títol desconegut":
+            st.warning("No s'ha trobat el títol.")
+            st.session_state.title = st.text_input("Títol:", key="manual_title")
 
-    preu = st.number_input("Preu: ")
+        else:
+            st.write(f"**Títol detectat:** {st.session_state.title}")
 
-    button = st.button("Entra les dades")
+        if not st.session_state.author or st.session_state.author == "Autor desconegut":
+            st.warning("No s'ha trobat l'autor.")
+            st.session_state.author = st.text_input("Autor/Traductor:", key="manual_author")
+        else:
+            st.write(f"**Autor detectat:** {st.session_state.author}")
 
-    if button:
-
-        book = get_book(isbn)
-        title = book["title"]
-        author = book["author"]
-        try:
-            con.execute(
-            """
-                        INSERT INTO inventory.llibres (
-                            ISBN, "Títol", "Autor/traductor",
-                            Localització, Lloc_comprador, Datapub, Datavenda, PreuPub, Preuvenda
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                (isbn, title, author, lloc, "ciutat", data, data, preu, 0), 
+        if st.button("Confirma les dades."):
+            try:
+                con.execute(
+                """
+                INSERT INTO inventory.llibres (
+                    ISBN, "Títol", "Autor/traductor",
+                    Localització, Lloc_comprador, Datapub, Datavenda, PreuPub, Preuvenda
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    st.session_state.isbn,
+                    st.session_state.title,
+                    st.session_state.author,
+                    st.session_state.lloc,
+                    "ciutat",
+                    st.session_state.data,
+                    st.session_state.data,
+                    st.session_state.preu,
+                    0,
+                ),
             )
-            st.success("Taula actualitzada")
+                st.success("Taula actualitzada")
 
-        except Exception as e:
-            st.error(f"Hi ha hagut un error: {e}")
-        
-## mirar si puc mirar a la taula que si el valor es none el poso manualmet
+            # Reset session state
+                for key in ["isbn", "lloc", "data", "preu", "title", "author", "data_entered"]:
+                    st.session_state[key] = None
+
+            except Exception as e:
+                st.error(f"Hi ha hagut un error: {e}")
+
+# Show table
     with st.expander("Taula actual"):
         df = con.execute("SELECT * FROM inventory.llibres ORDER BY ID ASC").df()
         st.dataframe(df)

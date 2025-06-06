@@ -14,7 +14,7 @@ def get_book(isbn):
 
      book = data.get(f"ISBN:{isbn}") ## potser treure això i deixar el none
      if not book:
-         return {"title": "Títol desconegut", "author": "Autor desconegut"}
+         return {"title": None, "author": None}
 
      title = book.get("title", "No title")
      raw_authors = [a["name"] for a in book.get("authors", [])]
